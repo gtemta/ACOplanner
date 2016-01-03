@@ -19,6 +19,8 @@ import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.os.PersistableBundle;
 import android.provider.Settings;
 import android.support.design.widget.FloatingActionButton;
@@ -72,6 +74,8 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
+import nctu.imf.sirenplayer.ACO.ACO;
+
 /**
  * Created by jason on 15/11/13.
  * reference
@@ -83,13 +87,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         ,com.google.android.gms.location.LocationListener{
     private static final String MapTag ="MapsActivity";
     private static GoogleMap mMap;
-    ArrayList<LatLng> markerLatLng;
+    public ArrayList<LatLng> markerLatLng;
     private static boolean isFirstStart=true;
     private static boolean isNavigating=false;
     private static boolean isFocusAutocompleteView=false;
     private static int myMode=1;
     private final int DRIVE=1;
     private final int DRIVE_AVOID_HIGHWAY=21;
+
+    private int citynum = 0;
+    public int citydis = 0;
 
 
     /***************************DB******************************/
@@ -119,8 +126,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private static LatLng goLatLng;
     private Marker currentMarker;
     private FloatingActionButton startSpeech;
+    private FloatingActionButton startACO;
+
     public boolean getGPSService = false;
     public boolean getLANService = false;
+
+    private Handler mHandler;
 
 
     /***************************Log******************************/
@@ -176,6 +187,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        GlobalVariable.setnull();
         if (null!=savedInstanceState){
             Log.d(MapTag,"savedInstanceState not null. get last location state.");
             currentLocation.setLatitude(savedInstanceState.getDouble("LAT"));
@@ -185,6 +197,24 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         testLocationProvider();
         testLanProvider();
 
+
+        startACO = (FloatingActionButton)findViewById(R.id.start_ACO);
+        startACO.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View view) {
+//                 Intent intent = new Intent();
+//                 intent.setClass(MapsActivity.this, MainService.class);
+//                 intent.setAction("nctu.imf.sirenplayer.MainService");
+//                 intent.setPackage(getPackageName());
+//                 startService(intent);
+                Log.i("distance",Integer.toString(citynum)+"             citynum");
+                setdistancematrix();
+                startACO.setEnabled(false);
+                startACO.setVisibility(View.GONE);
+
+                // NotiCreate();
+            }
+        });
 
         startSpeech = (FloatingActionButton) findViewById(R.id.start_speech);
         startSpeech.setOnClickListener(new View.OnClickListener() {
@@ -209,6 +239,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.getUiSettings().setMyLocationButtonEnabled(false);
         mMap.getUiSettings().setMapToolbarEnabled(false);
         mMap.getUiSettings().setIndoorLevelPickerEnabled(false);
+        markerLatLng=new ArrayList<>();
         // 建立Google API用戶端物件
         configGoogleApiClient();
         // 建立Location請求物件
@@ -278,15 +309,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         list_records.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                goLatLng=new LatLng(dbAdapter.get(position).get_Lat(), dbAdapter.get(position).get_Lng());
+                goLatLng = new LatLng(dbAdapter.get(position).get_Lat(), dbAdapter.get(position).get_Lng());
 
                 LatLngBounds.Builder builder = new LatLngBounds.Builder();
                 builder.include(new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude()));
                 builder.include(goLatLng);
-                LatLngBounds bounds=builder.build();
+                LatLngBounds bounds = builder.build();
                 int padding = 100; // offset from edges of the map in pixels
                 mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding));
-
                 addMarker(goLatLng, dbAdapter.get(position).get_Command(), "上次查詢時間:" + dbAdapter.get(position).get_Time());
                 Log.d(DBTag, "Record list view position" + position);
                 Log.e(DBTag, "LATLNG " + goLatLng);
@@ -295,15 +325,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Log.e(DBTag, "Lng " + currentLocation.getLongitude());
 
 
-                if (goLatLng!=null){
-                    Log.d(MapTag,"TEST "+dbAdapter.get(position).get_Command());
-                    mNavigation(new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude()),goLatLng);
-                    Log.d(MapTag,"Navigation from current to "+dbAdapter.get(position).get_Command());
+                if (goLatLng != null) {
+                    Log.d(MapTag, "TEST " + dbAdapter.get(position).get_Command());
+//                    mNavigation(new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude()), goLatLng);
+
+                    Log.d(MapTag, "Navigation from current to " + dbAdapter.get(position).get_Command());
                 }
-                goLocation=new Location("goLocation");
+                goLocation = new Location("goLocation");
                 goLocation.setLatitude(goLatLng.latitude);
                 goLocation.setLongitude(goLatLng.longitude);
-                goLatLng=null;
+                goLatLng = null;
                 DBLayout.setVisibility(View.GONE);
             }
         });
@@ -332,7 +363,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         Log.i(DBTag, "DB setup OK");
 
-        markerLatLng=new ArrayList<>();
+
         mAutocompleteView = (AutoCompleteTextView)findViewById(R.id.autocomplete_places);
         mAutocompleteView.setOnItemClickListener(mAutocompleteClickListener);
         mAdapter = new PlaceAutocompleteAdapter(this, googleApiClient, BOUND_TAIWAN,null);
@@ -343,6 +374,34 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             logTextView.setVisibility(View.GONE);
         }
         Toast.makeText(this,"您好,建議您使用國語(台灣)進行語音操作",Toast.LENGTH_LONG).show();
+
+        mHandler = new Handler(){
+            int i = 0;
+            @Override
+            public void handleMessage(Message msg) {
+                switch(msg.what){
+                    case 1:
+                        for (int i =0; i<citynum; i++) {
+                            for (int j = 0; j < citynum; j++) {
+                                if(i<j){
+                                    GlobalVariable.dis[i][j] = GlobalVariable.dis[j][i];
+                                }
+                            }
+                        }
+                        GlobalVariable.verifydismatrix();
+                        ACO aco = new ACO(48, 100 ,10, 1.f, 5.f, 0.5f);
+        try {
+            aco.init(GlobalVariable.dis);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        aco.solve();
+
+                        break;
+                }
+                super.handleMessage(msg);
+            }
+        };
     }
 
 
@@ -356,8 +415,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         super.onResume();
         if (currentLocation!=null){
             moveMap(new LatLng(currentLocation.getLatitude(),currentLocation.getLongitude()));
+            //citynum +=1;
+            //markerLatLng.add(new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude()));
         }else{
             moveMap(rec_Location);
+            citynum +=1;
+            markerLatLng.add(rec_Location);
         }
         LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver, new IntentFilter("my-event"));
 
@@ -630,31 +693,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 public void onMapClick(LatLng latLng) {
                     // Adding new item to the ArrayList
                     markerLatLng.add(latLng);
-                    if (markerLatLng.size() == 1) {
-                        MarkerOptions options = new MarkerOptions();
+                      MarkerOptions options = new MarkerOptions();
                         options.position(latLng);
                         options.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN));
-                        mNavigation(new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude()), latLng);
+                        //mNavigation(new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude()), latLng);
                         mMap.addMarker(options);
-                    } else if (markerLatLng.size() == 2) {
-                        MarkerOptions options = new MarkerOptions();
-                        options.position(latLng);
-                        options.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
-                        mNavigation(markerLatLng.get(0), latLng);
-                        mMap.addMarker(options);
-                    }else if (markerLatLng.size() == 3){
-                        Toast.makeText(MapsActivity.this,"再輕觸地圖一次可以清除地圖",Toast.LENGTH_SHORT).show();
-                    }else{
-                        markerLatLng.clear();
-                        mMap.clear();
-                        currentMarker=null;
+                    Log.d(MapTag, "Marker Info" + markerLatLng);
+                    citynum +=1;
                     }
-                }
             });
         }
     }
 
-    private void mNavigation(LatLng origin,LatLng dest){
+
+    private void mNavigation(LatLng origin,LatLng dest,int i,int j){
         if (currentMarker != null) {
             currentMarker.remove();
         }
@@ -670,11 +722,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         String url = getDirectionsUrl(fromLatLng, toLatLng);
 
         DownloadTask downloadTask = new DownloadTask();
-
+        downloadTask.setij(i,j);
+//       citydis = downloadTask.getDistance();
+//        Log.i("distance",Integer.toString(citydis)+"      citydintace     "+Integer.toString(citynum));
         // Start downloading json data from Google Directions
         // API
+
         downloadTask.execute(url);
+
         mAutocompleteView.setText("");
+
     }
 
     // 在地圖加入指定位置與標題的標記
@@ -688,6 +745,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .snippet(snippet);
 
         mMap.addMarker(markerOptions);
+
     }
 
     private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
@@ -765,6 +823,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private class DownloadTask extends AsyncTask<String, Void, String> {
+        protected int downloaddis = 0;
+        protected int ii = 0;
+        protected int jj = 0;
         @Override
         protected String doInBackground(String... url) {
 
@@ -781,11 +842,24 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         @Override
         protected void onPostExecute(String result) {
             super.onPostExecute(result);
-
+            Log.i("ij",Integer.toString(ii)+"  "+Integer.toString(jj));
             ParserTask parserTask = new ParserTask();
-
+            parserTask.setij(ii, jj);
             parserTask.execute(result);
 
+
+            downloaddis = parserTask.getdis();
+
+
+
+//            Log.i("distance",Integer.toString(downloaddis)+"          Downloadtask");
+        }
+        public int getDistance(){
+            return downloaddis;
+        }
+        public void setij(int i,int j){
+            ii = i;
+            jj = j;
         }
     }
 
@@ -893,7 +967,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding));
             addMarker(latlng, String.valueOf(place.getName())
                     , String.valueOf(place.getAddress()));
-            mNavigation(new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude()), latlng);
+
+//            mNavigation(new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude()), latlng);
 
             //Close Keyboard
             InputMethodManager imm = (InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);
@@ -927,6 +1002,96 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         records.remove(position);
         dbAdapter.notifyDataSetChanged();
         DBLayout.setVisibility(View.GONE);
+    }
+
+    private void setdistancematrix(){
+        GlobalVariable.initdis(citynum);
+
+//        new Thread(new Runnable(){
+//            @Override
+//            public void run() {
+//                // TODO Auto-generated method stub
+//                try {
+//                    for (int i = 0; i < citynum; i++) {
+//                        for (int j = 0; j < citynum; j++) {
+//                            if (i == j) {
+//                                int k = 0;
+//                                GlobalVariable.dis[i][j] = 0;
+////                    GlobalVariable.doingnum += 1;
+//                            } else {
+//                                if (i > j) {
+//                                    mNavigation(markerLatLng.get(i), markerLatLng.get(j), i, j);
+////                        GlobalVariable.dis[i][j] = citydis;
+//                                }
+//
+//                            }
+//
+//                        }
+//                        Thread.sleep(1000);
+//                    }
+//                }catch (Exception e){
+//                    Log.d("exepttion",e.getMessage().toString());
+//                }
+//            }
+//        }).start();
+        for (int i = 0; i < citynum; i++) {
+            for (int j = 0; j < citynum; j++) {
+                if (i == j) {
+                    int k = 0;
+                    GlobalVariable.dis[i][j] = 0;
+//                    GlobalVariable.doingnum += 1;
+                } else {
+                    if (i > j) {
+
+
+
+
+                                mNavigation(markerLatLng.get(i), markerLatLng.get(j), i, j);
+                                //過兩秒後要做的事情
+
+
+                    }
+                }
+            }
+        }
+
+        new Thread(new Runnable(){
+            @Override
+            public void run() {
+                // TODO Auto-generated method stub
+                Log.i("ij","有進去");
+                while(!GlobalVariable.finish){
+                    try{
+                        Log.i("ij","開始跑");
+                        if(GlobalVariable.doingnum == citynum *(citynum-1)/2 ){
+                            GlobalVariable.finish = true;
+                                                    Message msg = new Message();
+                        msg.what = 1;
+                        mHandler.sendMessage(msg);
+//                            GlobalVariable.verifydismatrix();
+                        }
+
+                        Thread.sleep(500);
+//                        Toast.makeText(getApplicationContext(),Integer.toString(GlobalVariable.doingnum),Toast.LENGTH_SHORT).show();
+                        Log.i("ij",Integer.toString(GlobalVariable.doingnum)+"     跑到這");
+
+                    }
+                    catch(Exception e){
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }).start();
+
+
+
+
+
+
+
+
+
+
     }
 
 

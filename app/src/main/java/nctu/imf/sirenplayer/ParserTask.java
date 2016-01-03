@@ -25,6 +25,9 @@ import java.util.List;
 /**************** 解析JSON格式 ********************/
 public class ParserTask extends AsyncTask<String, Integer, List<List<HashMap<String, String>>>> {
     GoogleMap maps=MapsActivity.getMaps();
+    protected int dis = 0;
+    protected int i = 0;
+    protected int j = 0;
 
     // Parsing the data in non-ui thread
     @Override
@@ -32,6 +35,7 @@ public class ParserTask extends AsyncTask<String, Integer, List<List<HashMap<Str
             String... jsonData) {
 
         JSONObject jObject;
+        int ptdistance = 0;
         List<List<HashMap<String, String>>> routes = null;
 
         try {
@@ -40,11 +44,30 @@ public class ParserTask extends AsyncTask<String, Integer, List<List<HashMap<Str
             mParser = new DirectionsJSONParser();
 
             // Starts parsing data
+
+
+
             routes = mParser.parse(jObject);
+            ptdistance = mParser.getjsonDis();
+            Log.i("distance",Integer.toString(ptdistance)+"               ParserTask distance");
         } catch (Exception e) {
             e.printStackTrace();
         }
+        dis = ptdistance;
+        Log.i("distance",Integer.toString(dis)+"        ParserTaskOutOfCatch");
+        GlobalVariable.dis[i][j]= dis;
+        GlobalVariable.doingnum += 1;
         return routes;
+    }
+
+    protected int getdis(){
+
+     return dis;
+    }
+
+    public void setij(int i,int j){
+        this.i = i;
+        this.j = j;
     }
 
     // Executes in UI thread, after the parsing process

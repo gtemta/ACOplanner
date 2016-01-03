@@ -15,5 +15,12 @@
         android:layout_gravity="right|bottom"
         android:layout_marginBottom="0dp"
         android:src="@android:drawable/btn_star" />
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/start_ACO"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="left|bottom"
+        android:layout_marginBottom="40dp"
+        android:src="@android:drawable/ic_btn_speak_now" />
 
 </android.support.design.widget.CoordinatorLayout>

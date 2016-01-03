@@ -6,6 +6,8 @@ package nctu.imf.sirenplayer;
  * http://www.cheng-min-i-taiwan.blogspot.tw/2013/04/google-maps-android-api-v2-android.html
  */
 
+import android.util.Log;
+
 import com.google.android.gms.maps.model.LatLng;
 
 import org.json.JSONArray;
@@ -19,7 +21,8 @@ import java.util.List;
 /***導航使用***/
 /*************************DirectionsJSONParser*************************/
 public class DirectionsJSONParser {
-
+    private int distance = 0;
+    private int sumdistance = 0;
     /** 接收一個JSONObject並返回一個列表的列表，包含經緯度 */
     public List<List<HashMap<String,String>>> parse(JSONObject jObject){
 
@@ -27,6 +30,10 @@ public class DirectionsJSONParser {
         JSONArray jRoutes = null;
         JSONArray jLegs = null;
         JSONArray jSteps = null;
+
+        int jpsumdistance = 0;
+
+
 
         try {
 
@@ -45,6 +52,10 @@ public class DirectionsJSONParser {
                     for(int k=0;k<jSteps.length();k++){
                         String polyline = "";
                         polyline = (String)((JSONObject)((JSONObject)jSteps.get(k)).get("polyline")).get("points");
+                        distance = (int)((JSONObject)((JSONObject)jSteps.get(k)).get("distance")).get("value");
+                        jpsumdistance += distance;
+                        Log.i("distance",Integer.toString(jpsumdistance)+"          DirectionJson");
+
                         List<LatLng> list = decodePoly(polyline);
 
                         /** Traversing all points */
@@ -63,9 +74,14 @@ public class DirectionsJSONParser {
             e.printStackTrace();
         }catch (Exception e){
         }
-
+        sumdistance = jpsumdistance;
+        Log.i("distance",Integer.toString(sumdistance)+"          DirectionJsonOutTryCatch" );
 
         return routes;
+    }
+
+    public int getjsonDis(){
+        return sumdistance;
     }
 
 
