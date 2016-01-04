@@ -8,7 +8,7 @@ import android.app.Application;
 import java.util.HashMap;
 import java.util.Map;
 
-public class GlobalVariable extends Application {
+public class GlobalVariable  {
     public static int[][] distance;
     public static int[] favorite;
     public static int[] bestTour;

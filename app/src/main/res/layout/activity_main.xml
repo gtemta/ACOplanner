@@ -20,7 +20,16 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="left|bottom"
-        android:layout_marginBottom="40dp"
-        android:src="@android:drawable/ic_btn_speak_now" />
+        android:src="@android:drawable/ic_menu_share" />
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/ratecheck"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:tint="@color/blue"
+        android:layout_marginBottom="100dp"
+        android:src="@android:drawable/ic_input_add"
+        android:visibility="gone"/>
+
 
 </android.support.design.widget.CoordinatorLayout>

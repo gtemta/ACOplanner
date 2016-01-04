@@ -1,5 +1,7 @@
 package nctu.imf.sirenplayer.ACO;
 
+import android.util.Log;
+
 import java.util.Random;
 import java.util.Vector;
  
@@ -10,43 +12,31 @@ private Vector<Integer> tabu; //禁忌矩阵
 private Vector<Integer> allowedCities; //没有走过的城市
 private float [][] delta; //信息数变化矩阵
 private int [][] distance; //距离矩阵
- 
 private float alpha;
 private float beta;
- 
 private int tourLength; // 路径长度
- 
 private int cityNum; //城市数量
- 
 private int firstCity; //起始城市
 private int currentCity; //当前城市
 private int[] favorite;
 private int totalfavor;
-
 private int now;  //目前第幾個城市
- 
+
 private Ant(){
- 
 	cityNum = 30;
 	tourLength = 0;
- 
 }
  
 public Ant(int num) {
- 
 	cityNum = num;
 	tourLength = 0;
- 
 }
  
 public void init(int [][]distance , float a , float b,int[] fav){
-	
 	favorite = fav;
-//	for(int i:favorite){
-//		System.out.println(i);
-// 
-//	}
-
+	for(int i:favorite){
+		Log.i("fav",Integer.toString(i)+"     fav");
+	}
 	alpha = a;
 	beta = b;
 	totalfavor = 0;
@@ -59,24 +49,16 @@ public void init(int [][]distance , float a , float b,int[] fav){
 		Integer integer = new Integer(i);
 		allowedCities.add(integer);
 		for(int j = 0;j < cityNum; j++){
- 
 			delta[i][j] = 0.f;
- 
 		}
- 
 	}
 	Random random = new Random(System.currentTimeMillis());
 	firstCity = random.nextInt(cityNum);
 	for(Integer i:allowedCities){
- 
 		if(i.intValue() == firstCity){
- 
 			break;
- 
 		}
- 
 	}
- 
 	tabu.add(Integer.valueOf(firstCity));
 	allowedCities.remove(firstCity);
 	currentCity = firstCity;

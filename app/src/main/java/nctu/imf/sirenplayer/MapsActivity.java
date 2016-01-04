@@ -37,6 +37,7 @@ import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.RatingBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -73,6 +74,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import nctu.imf.sirenplayer.ACO.ACO;
 
@@ -97,7 +99,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private int citynum = 0;
     public int citydis = 0;
-
+    private RatingBar ratingBar;
+    private int[] favor;
+    private int[] best;
 
     /***************************DB******************************/
     private DBcontact dbcontact;
@@ -127,6 +131,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private Marker currentMarker;
     private FloatingActionButton startSpeech;
     private FloatingActionButton startACO;
+    private FloatingActionButton ratecheck;
 
     public boolean getGPSService = false;
     public boolean getLANService = false;
@@ -197,22 +202,36 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         testLocationProvider();
         testLanProvider();
 
+        addListenerOnRatingBar();
+
+        favor = new int[20];
 
         startACO = (FloatingActionButton)findViewById(R.id.start_ACO);
-        startACO.setOnClickListener(new View.OnClickListener(){
+        startACO.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-//                 Intent intent = new Intent();
-//                 intent.setClass(MapsActivity.this, MainService.class);
-//                 intent.setAction("nctu.imf.sirenplayer.MainService");
-//                 intent.setPackage(getPackageName());
-//                 startService(intent);
-                Log.i("distance",Integer.toString(citynum)+"             citynum");
+                Log.i("distance", Integer.toString(citynum) + "             citynum");
                 setdistancematrix();
                 startACO.setEnabled(false);
                 startACO.setVisibility(View.GONE);
 
                 // NotiCreate();
+            }
+        });
+        ratecheck = (FloatingActionButton)findViewById(R.id.ratecheck);
+        ratecheck.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+                favor[0]=5;
+                ratingBar = (RatingBar) findViewById(R.id.ratingBar);
+                Log.i(MapTag,"stars: " + Integer.valueOf((int)ratingBar.getRating()));
+                favor[citynum-1] =Integer.valueOf((int)ratingBar.getRating());
+                Toast.makeText(MapsActivity.this, "喜好程度為: " + String.valueOf(ratingBar.getRating()), Toast.LENGTH_SHORT).show();
+                Log.d(MapTag, "citynum : " + citynum);
+
+                ratecheck.setVisibility(View.GONE);
+                ratingBar.setVisibility(View.GONE);
             }
         });
 
@@ -389,19 +408,56 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             }
                         }
                         GlobalVariable.verifydismatrix();
-                        ACO aco = new ACO(48, 100 ,10, 1.f, 5.f, 0.5f);
+                        ACO aco = new ACO(GlobalVariable.cnum, 100 ,10, 4.f, 5.f, 0.5f);
         try {
-            aco.init(GlobalVariable.dis);
+            aco.init(GlobalVariable.dis, favor);
         } catch (IOException e) {
             e.printStackTrace();
         }
         aco.solve();
 
                         break;
+                    case 2:
+                        mNavigation(markerLatLng.get(msg.arg1), markerLatLng.get(msg.arg2), msg.arg1, msg.arg2);
+                        break;
+                    case 3:
+
+                        best = GlobalVariable.btour;
+                        mMap.clear();
+                        MarkerOptions optionsaco = new MarkerOptions();
+
+                        for(int i=0;i<citynum;i++){
+                            optionsaco.position(markerLatLng.get(i));
+                            mMap.addMarker(optionsaco);
+                        }
+                        for (int i = 0;i<GlobalVariable.bcitynum-1;i++){
+//			if(i==0){
+//			varray[i]=0;
+//			}else{
+//                            optionsaco.position(markerLatLng.get(best[i+1]));
+//                            mMap.addMarker(optionsaco);
+                            mNavigation(markerLatLng.get(best[i]), markerLatLng.get(best[i+1]), best[i], best[i+1]);
+
+                            //}
+                        }
+
+                        break;
                 }
                 super.handleMessage(msg);
             }
         };
+    }
+
+
+
+    private void addListenerOnRatingBar() {
+        ratingBar =(RatingBar)findViewById(R.id.ratingBar);
+        ratingBar.setOnRatingBarChangeListener(new RatingBar.OnRatingBarChangeListener() {
+            @Override
+            public void onRatingChanged(RatingBar ratingBar, float rating, boolean fromUser) {
+
+            }
+        });
     }
 
 
@@ -560,6 +616,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
+
     // ConnectionCallbacks
     @Override
     public void onConnected(Bundle bundle) {
@@ -700,6 +757,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         mMap.addMarker(options);
                     Log.d(MapTag, "Marker Info" + markerLatLng);
                     citynum +=1;
+                    ratecheck.setVisibility(View.VISIBLE);
+                    ratingBar.setVisibility(View.VISIBLE);
                     }
             });
         }
@@ -1003,6 +1062,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         dbAdapter.notifyDataSetChanged();
         DBLayout.setVisibility(View.GONE);
     }
+    private void setFavorite(){
+        GlobalVariable.initfav(citynum);
+        GlobalVariable.favorite = favor.clone();
+    }
+
 
     private void setdistancematrix(){
         GlobalVariable.initdis(citynum);
@@ -1034,19 +1098,52 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 //                }
 //            }
 //        }).start();
-        for (int i = 0; i < citynum; i++) {
+//        for (int i = 0; i < citynum; i++) {
+//            for (int j = 0; j < citynum; j++) {
+//                if (i == j) {
+//                    int k = 0;
+//                    GlobalVariable.dis[i][j] = 0;
+////                    GlobalVariable.doingnum += 1;
+//                } else {
+//                    if (i > j) {
+//
+//
+//
+//
+//                                mNavigation(markerLatLng.get(i), markerLatLng.get(j), i, j);
+//                                //過兩秒後要做的事情
+//
+//
+//                    }
+//                }
+//            }
+//        }
+
+//         final AtomicBoolean running = new AtomicBoolean(true);
+        new Thread(new Runnable() {
+            public void run() {
+                for (int i = 0; i < citynum; i++) {
             for (int j = 0; j < citynum; j++) {
                 if (i == j) {
                     int k = 0;
                     GlobalVariable.dis[i][j] = 0;
+
 //                    GlobalVariable.doingnum += 1;
                 } else {
                     if (i > j) {
+                        try {
+                            Thread.sleep(500);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
 
 
+                        Message msg = new Message();
 
 
-                                mNavigation(markerLatLng.get(i), markerLatLng.get(j), i, j);
+                        msg = mHandler.obtainMessage(2,i,j);
+                        mHandler.sendMessage(msg);
+
                                 //過兩秒後要做的事情
 
 
@@ -1054,6 +1151,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 }
             }
         }
+
+
+
+
+                    // do something in the loop
+
+            }
+        }).start();
+
+
 
         new Thread(new Runnable(){
             @Override
@@ -1084,6 +1191,38 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }).start();
 
 
+        new Thread(new Runnable(){
+            @Override
+            public void run() {
+                // TODO Auto-generated method stub
+                Log.i("aco","有進去");
+                while(!GlobalVariable.acofinish){
+                    try{
+                        Log.i("aco","開始跑");
+
+                            if(GlobalVariable.acostop) {
+
+                                Message msg = new Message();
+                                msg.what = 3;
+                                mHandler.sendMessage(msg);
+                                GlobalVariable.acofinish = true;
+                            }
+//                            GlobalVariable.verifydismatrix();
+
+
+                        Thread.sleep(500);
+//                        Toast.makeText(getApplicationContext(),Integer.toString(GlobalVariable.doingnum),Toast.LENGTH_SHORT).show();
+
+
+                    }
+                    catch(Exception e){
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }).start();
+
+
 
 
 
@@ -1093,7 +1232,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
 
     }
-
 
 
     private static Spanned formatPlaceDetails(Resources res, CharSequence name, String id,
@@ -1196,6 +1334,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             case "出發":
                 if (DBLayout.getVisibility()==View.VISIBLE){
                     tapOnRecord(0);
+                    ratingBar.setVisibility(View.VISIBLE);
                 }else{
                     mSwitch=1;
                 }
@@ -1210,6 +1349,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 toastStr="第二筆";
                 if (DBLayout.getVisibility()==View.VISIBLE){
                     tapOnRecord(1);
+                    ratingBar.setVisibility(View.VISIBLE);
                 }else{
                     mSwitch=2;
                 }
@@ -1227,6 +1367,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 toastStr="第三筆";
                 if (DBLayout.getVisibility()==View.VISIBLE){
                     tapOnRecord(2);
+                    ratingBar.setVisibility(View.VISIBLE);
                 }else{
                     mSwitch=3;
                 }
@@ -1247,6 +1388,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 toastStr="第四筆";
                 if (DBLayout.getVisibility()==View.VISIBLE){
                     tapOnRecord(3);
+                    ratingBar.setVisibility(View.VISIBLE);
                 }else{
                     mSwitch=4;
                 }
@@ -1263,6 +1405,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 toastStr="第五筆";
                 if (DBLayout.getVisibility()==View.VISIBLE){
                     tapOnRecord(4);
+                    ratingBar.setVisibility(View.VISIBLE);
                 }else{
                     mSwitch=5;
                 }
@@ -1277,6 +1420,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 toastStr="第六筆";
                 if (DBLayout.getVisibility()==View.VISIBLE){
                     tapOnRecord(5);
+                    ratingBar.setVisibility(View.VISIBLE);
                 }
                 break;
             case "D7B":
@@ -1289,6 +1433,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 toastStr="第七筆";
                 if (DBLayout.getVisibility()==View.VISIBLE){
                     tapOnRecord(6);
+                    ratingBar.setVisibility(View.VISIBLE);
                 }
                 break;
             case "刪除第一筆":

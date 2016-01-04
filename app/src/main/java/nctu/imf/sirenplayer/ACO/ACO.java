@@ -1,6 +1,7 @@
 package nctu.imf.sirenplayer.ACO;
 
 import android.os.Environment;
+import android.os.Message;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -12,6 +13,9 @@ import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Vector;
+
+import nctu.imf.sirenplayer.*;
+import nctu.imf.sirenplayer.GlobalVariable;
 
 //import javax.print.attribute.standard.Sides;
  
@@ -26,15 +30,16 @@ private float[][] pheromone; //信息素矩阵
 private int[][] distance; //距离矩阵
 private int bestLength; //最佳长度
 private int[] bestTour; //最佳路径
-private int[] favorite;
-private int favorsum;
-private int nowcitynum;
-private int currentlength;
+private int[] favorite; //喜好度
+private int favorsum; //總喜好度
+private int nowcitynum; //現今城市數
+private int currentlength; //現今路徑長
 private int ifearlystop;
 private int favor;
-private int bestTourCityNum;
-private int firstCity;
-
+private int bestTourCityNum; //最佳程式數
+private int firstCity; //最佳起始程式
+private int onedaydistance;//每日距離限制
+private float Q;
 private float alpha;
 private float beta;
 private float rho;
@@ -57,126 +62,29 @@ public ACO(int p_cityNum, int p_antNum, int p_max_gen,float p_alpha, float p_bet
 	favorsum = 0;
 	favor = 0;
 	bestTourCityNum = cityNum;
- 
+	onedaydistance = 6000;
+ 	Q = 100.0F;
 }
  
-public void init( int[][] distance) throws IOException{
+public void init( int[][] dist, int[] favo) throws IOException{
  
 	int[] x;
 	int[] y;
 	String strbuff;
-	this.distance = distance;
-
-//	try
-//	{
-//		//取得SD卡儲存路徑
-//		File mSDFile = Environment.getExternalStorageDirectory();
-//		//讀取文件檔路徑
-//		FileReader mFileReader = new FileReader(mSDFile.getParent() + "/" + mSDFile.getName() +"/"+ filename);
-//		BufferedReader data = new BufferedReader(mFileReader);
-//
-//		distance = new int[cityNum][cityNum];
-//		x = new int[cityNum];
-//		y = new int[cityNum];
-//		favorite = new int [cityNum];
-//		for(int i = 0;i < cityNum; i++){
-//
-//			strbuff = data.readLine();
-//			String[] strcol = strbuff.split(" ");
-//			x[i] = Integer.valueOf(strcol[1]);
-//			y[i] = Integer.valueOf(strcol[2]);
-//			favorite[i] = Integer.valueOf(strcol[3]);
-//
-//
-//			//	System.out.println("x: "+x[i]+"   y:  "+y[i]);
-//		}
-
-//		for(int i = 0;i < cityNum - 1; i++){
-//
-//			distance[i][i] = 0;
-//			for(int j = i + 1; j < cityNum; j++){
-//				// System.out.println("i:   "+i+"  j:  "+j);
-//				double rij = Math.sqrt((x[i]-x[j])*(x[i] - x[j]) + (y[i]-y[j])*(y[i]-y[j]))/10.0;
-//				int tij = (int)Math.round(rij);
-//				if(tij < rij){
-//
-//					distance[i][j] = tij + 1;
-//					distance[j][i] = distance[i][j];
-//
-//				}else{
-//
-//					distance[i][j] = tij;
-//					distance[j][i] = distance[i][j];
-//
-//				}
-//
-//			}
-//
-//		}
-//		BufferedReader mBufferedReader = new BufferedReader(mFileReader);
-//		String mReadText = "";
-//		String mTextLine = mBufferedReader.readLine();
-//
-//		//一行一行取出文字字串裝入String裡，直到沒有下一行文字停止跳出
-//		while (mTextLine!=null)
-//		{
-//			mReadText += mTextLine+"\n";
-//			mTextLine = mBufferedReader.readLine();
-//		}
-		//文字放入mText裡，並清空mEdit
-//		mText.setText(mReadText);
-//		Toast.makeText(, "已讀取文字", Toast.LENGTH_SHORT).show();
-//		mEdit.setText("");
-
-//		distance[cityNum - 1][cityNum - 1] = 0;
-//		for(int i = 0;i<cityNum;i++){
-//			for(int j = 0;j<cityNum;j++){
-//				for (int k = 1;k<=3;k++){
-//					if (distance[i][j]/(Math.pow(10, k))<1)
-//						Log.i("ok", ("0"));
-//				}
-//				Log.i("ok",(distance[i][j]+"    "));
-//
-//			}
-////		System.out.println();
-//		}
-
+	distance = dist;
+	favorite = favo;
 		pheromone = new float[cityNum][cityNum];
 		for(int i = 0;i < cityNum; i++){
-
 			for(int j = 0;j < cityNum; j++){
-
 				pheromone[i][j] = 0.1f;
-
 			}
-
 		}
-
 		bestLength = Integer.MAX_VALUE;
 		bestTour = new int[cityNum + 1];
-
 		for(int i = 0;i < antNum ; i++){
-
 			ants[i] = new Ant(cityNum);
 			ants[i].init(distance, alpha, beta,favorite);
-//把favor家到這
 		}
-
-//	}
-//	catch(Exception e)
-//	{
-//		Log.i("ok",e.getMessage().toString());
-//	}
-
-
- 
-
- 
-
-//	writefile wr = new writefile(distance,cityNum);
-
-
- 
 }
  
 public void solve(){
@@ -195,14 +103,10 @@ public void solve(){
 				//ACOtabu.add(ants[i].getFirstCity());
 //				currentlength = ants[i].calculateTourlength(nowcitynum, ACOtabu);
 				currentlength = ants[i].calculateTourlength(nowcitynum);
-				if(currentlength > 3000 && nowcitynum > 0 || nowcitynum == cityNum - 1 ){
-					
+				if(currentlength > onedaydistance && nowcitynum > 0 || nowcitynum == cityNum - 1 ){
 					favorsum = ants[i].getTotalFavor();
-					
-					
-					
 					if(ants[i].getFavor(nowcitynum) > favor){
-						if(currentlength > 3000){
+						if(currentlength > onedaydistance){
 							bestTourCityNum = nowcitynum-1;
 						}else{
 							bestTourCityNum = nowcitynum;
@@ -211,11 +115,8 @@ public void solve(){
 						Log.i("ok", (nowcitynum) + "      nowcitynum");
 						bestLength = ants[i].calculateTourlength(bestTourCityNum);						
 						firstCity = ants[i].getFirstCity();
-						
 						for(int k = 0 ;k < bestTourCityNum-Num.shortnum  ; k++){
-						 
 							bestTour[k] = ants[i].getTabu().get(k).intValue();
-							
 						}
 					}
 					break;
@@ -261,6 +162,12 @@ public void solve(){
 		}
 	}
 	printOptimal();
+	GlobalVariable.btour = getBestTour();
+	GlobalVariable.bcitynum = bestTourCityNum;
+	GlobalVariable.acostop = true;
+	Log.i("distance","做完了");
+
+
  
 	}
  
@@ -270,7 +177,7 @@ private void updatePheromone(){
  
 		for(int j = 0 ; j < cityNum; j++){
  
-			pheromone[i][j] = pheromone[i][j] * (1 - rho);
+			pheromone[i][j] =  pheromone[i][j] * (1 - rho);
  
 		}
  
