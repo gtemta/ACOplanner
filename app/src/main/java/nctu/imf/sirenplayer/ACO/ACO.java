@@ -177,7 +177,7 @@ private void updatePheromone(){
  
 		for(int j = 0 ; j < cityNum; j++){
  
-			pheromone[i][j] =  pheromone[i][j] * (1 - rho);
+			pheromone[i][j] =  Q * pheromone[i][j] * (1 - rho);
  
 		}
  

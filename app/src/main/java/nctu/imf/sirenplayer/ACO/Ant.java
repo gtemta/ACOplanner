@@ -66,7 +66,6 @@ public void init(int [][]distance , float a , float b,int[] fav){
 }
  
 public void selectNextCity(float[][]pheromone) {
- 
 	float [] p = new float[cityNum];
 	float sum = 0.0f;
  
